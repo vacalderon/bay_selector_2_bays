@@ -109,36 +109,36 @@ beam_eff_span = remove_duplicates_and_values(l_eff, beam_spans_1)
 def parallel_composite_floor(q_sdl, q_ll):
 
     for q_sdl in q_sdl_list:
-    for q_ll in q_ll_list:
-        for girder_span in girder_spans:
-            for max_girder_depth in max_girder_depths:    
-                for beam_span in beam_eff_span:
-                    for deck_type in deck_types:
-                        for deflection_critical in deflection_criticals:
-                            for design_priority in design_priorities:
-                                for concrete_type in concrete_types:
-                                    max_beam_depth=max_girder_depth
-                                    if deck_type[8:10]!=concrete_type[9:11] :
-                                        continue
+        for q_ll in q_ll_list:
+            for girder_span in girder_spans:
+                for max_girder_depth in max_girder_depths:    
+                    for beam_span in beam_eff_span:
+                        for deck_type in deck_types:
+                            for deflection_critical in deflection_criticals:
+                                for design_priority in design_priorities:
+                                    for concrete_type in concrete_types:
+                                        max_beam_depth=max_girder_depth
+                                        if deck_type[8:10]!=concrete_type[9:11] :
+                                            continue
 
-                                    [response,message] = composite_floor.composite_floor(girder_span, max_girder_depth, beam_span, max_beam_depth, max_beam_spacing, deck_type, q_sdl, q_ll, acc_limit, q_vib_sdl, q_vib_ll, damping, deflection_critical, design_priority, concrete_type, aisc_database_filename)
-                                    if message =="Typical Wide-Flange Sections do not work for the given design parameters." :
-                                        continue
+                                        [response,message] = composite_floor.composite_floor(girder_span, max_girder_depth, beam_span, max_beam_depth, max_beam_spacing, deck_type, q_sdl, q_ll, acc_limit, q_vib_sdl, q_vib_ll, damping, deflection_critical, design_priority, concrete_type, aisc_database_filename)
+                                        if message =="Typical Wide-Flange Sections do not work for the given design parameters." :
+                                            continue
 
-                                    results_dict={'Super Imposed Dead Load, SD (psf)': q_sdl,
-                                                  'Live Load, L (psf)': q_ll,
-                                                  'Girder Span': girder_span,
-                                                  'Max Girder Depth': max_girder_depth,
-                                                  'Beam Span': beam_span,
-                                                  'Max Beam Depth': max_beam_depth,
-                                                  'Deck Type': deck_type,
-                                                  'Design Priority': design_priority,
-                                                  'Acceleration Limit': acc_limit,
-                                                  'Deflection Critical':deflection_critical}
-                                    dict = {k:[v] for k,v in response.items()} 
-                                    results_dict.update(dict)
-                                    DataFrame_Out = pd.DataFrame(results_dict)
-                                    DataFrame_Out.to_csv('results.csv', mode='a', header=False)
+                                        results_dict={'Super Imposed Dead Load, SD (psf)': q_sdl,
+                                                    'Live Load, L (psf)': q_ll,
+                                                    'Girder Span': girder_span,
+                                                    'Max Girder Depth': max_girder_depth,
+                                                    'Beam Span': beam_span,
+                                                    'Max Beam Depth': max_beam_depth,
+                                                    'Deck Type': deck_type,
+                                                    'Design Priority': design_priority,
+                                                    'Acceleration Limit': acc_limit,
+                                                    'Deflection Critical':deflection_critical}
+                                        dict = {k:[v] for k,v in response.items()} 
+                                        results_dict.update(dict)
+                                        DataFrame_Out = pd.DataFrame(results_dict)
+                                        DataFrame_Out.to_csv('results.csv', mode='a', header=False)
 
 # Parallelize the outermost loops
 def parallelize_outer_loops(q_sdl_list, q_ll_list):
