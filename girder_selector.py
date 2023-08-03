@@ -1,6 +1,6 @@
 #*******************************************************
 #*******************************************************
-#****       BAY SELECTOR PROGRAM                    ****
+#****       GIRDER SELECTOR PROGRAM                 ****
 #****       Version (1.1)                           ****
 #****       Developed: Victor A. Calderon, PhD, PE  ****
 #****                  Murat Melek, PhD, PE         ****
@@ -18,9 +18,10 @@ import pandas as pd
 import numpy as np
 import scipy as sp
 import math as math
-#from LibUnitsMUS import *
 import os as os
 import composite_floor
+import random
+import multiprocessing
 
 #DEFINE VARIABLES
 
@@ -47,18 +48,50 @@ import composite_floor
 
  # DEFINE LOADING CONDITIONS
 #
+
+def generate_random_loads(start, stop, step, count):
+    random_list = []
+    for _ in range(count):
+        random_num = random.uniform(start, stop)
+        random_list.append(round(random_num, 2))  # Round to 2 decimal places (optional)
+        start += step
+    return random_list
+
+def effective_length(span1, span2):
+    result = []
+
+    for i in span1:
+        span_eff = 0
+
+        for j in span2:
+            span_eff = (i + j) / 2
+            result.append(span_eff)
+
+    return result
+
+def remove_duplicates_and_values(input_list, values_to_remove):
+    # Filter out specific values
+    filtered_list = [x for x in input_list if x not in values_to_remove]
+
+    # Convert the filtered list to a set to remove duplicates
+    unique_set = set(filtered_list)
+
+    # Convert the set back to a list
+    unique_list = list(unique_set)
+
+    return unique_list
 # SUPERIMPOSED DEAD LOAD
-q_sdl_list = [20,50]
-#
+q_sdl_list = generate_random_loads(15,60,10,5) #psf
 # LIVE LOAD
-q_ll_list = [100,50]
+q_ll_list = generate_random_loads(50,150,10,10) #psf
 
 # DEFINE LISTS
 
 girder_spans =[20.0, 25.0, 30.0, 35.0, 40.0,45.0,50.0] # [25.0, 30.0, 35.0] #  ft
 max_girder_depths = [36] # [48.0,42.0,36.0,30.0,24.0] #in
-beam_spans = [20.0, 25.0, 30.0, 35.0, 40.0,45.0,50.0] # #  [20.0] #  ft
-max_beam_depth = [48.0] # in
+beam_spans_1 = [20.0, 25.0, 30.0, 35.0, 40.0,45.0,50.0] # #  [20.0] #  ft
+beam_spans_2 = [20.0, 25.0, 30.0, 35.0, 40.0,45.0,50.0]
+max_beam_depth = [36.0] # in
 max_beam_spacing = 20
 deck_types = ["W3_4.50_NW_20g", "W3_3.50_NW_20g", "W3_2.00_NW_20g", "W3_3.25_LW_20g", "W3_2.50_LW_20g", "W3_2.00_LW_20g", "W2_4.50_NW_20g", "W2_3.50_NW_20g", "W2_2.00_NW_20g", "W2_3.25_LW_20g", "W2_2.50_LW_20g", "W2_2.00_LW_20g"] # ["W3_4.50_NW_20g"] #   
 acc_limit = 0.005
@@ -70,11 +103,16 @@ design_priorities = ['EmbodiedCarbon'] # ['EmbodiedCarbon', 'Cost', 'Tonnage'] #
 concrete_types = ["WPM_5000_NWC","WPM_5000_LWC"] # ["WPM_3000_NWC","WPM_3500_NWC","WPM_4000_NWC","WPM_5000_NWC", "WPM_6000_NWC","WPM_8000_NWC","WPM_3000_LWC","WPM_3500_LWC","WPM_4000_LWC", "WPM_5000_LWC"] #  
 aisc_database_filename = r"C:\Users\victorc\Documents\GitHub\composite_floor_designer\AISC_Shapes_Database_v14.csv"
 
-for q_sdl in q_sdl_list:
+l_eff=effective_length(beam_spans_1, beam_spans_2)
+beam_eff_span = remove_duplicates_and_values(l_eff, beam_spans_1)
+
+def parallel_composite_floor(q_sdl, q_ll):
+
+    for q_sdl in q_sdl_list:
     for q_ll in q_ll_list:
         for girder_span in girder_spans:
             for max_girder_depth in max_girder_depths:    
-                for beam_span in beam_spans:
+                for beam_span in beam_eff_span:
                     for deck_type in deck_types:
                         for deflection_critical in deflection_criticals:
                             for design_priority in design_priorities:
@@ -102,36 +140,30 @@ for q_sdl in q_sdl_list:
                                     DataFrame_Out = pd.DataFrame(results_dict)
                                     DataFrame_Out.to_csv('results.csv', mode='a', header=False)
 
-#Generating input xstream datbase
+# Parallelize the outermost loops
+def parallelize_outer_loops(q_sdl_list, q_ll_list):
+    num_processes = multiprocessing.cpu_count()  # You can set the number of parallel processes here
 
-xstream_input_df =pd.DataFrame(columns=["type", "support_size",	
-                                        "support_material",	"beam_size", "beam_material", 
-                                        "skew_angle", "delta_e", "vu_type", 
-                                        "vu","pu", "beam_length"])
+    # Split the loading conditions into chunks for parallel processing
+    chunk_size = len(q_sdl_list) // num_processes
+    sdl_chunks = [q_sdl_list[i:i + chunk_size] for i in range(0, len(q_sdl_list), chunk_size)]
+    ll_chunks = [q_ll_list[i:i + chunk_size] for i in range(0, len(q_ll_list), chunk_size)]
 
-df = pd.read_csv(r"C:\Users\victorc\Documents\GitHub\composite_floor_designer\results.csv")
+    # Create a multiprocessing Queue to store the results from different processes
+    result_queue = multiprocessing.Queue()
 
-def replace_value(x):
-    if x > 12:
-        return x if x % 5 == 0 else math.ceil(x*1.05 // 5) * 5.0
-    else:
-        return 12
+    # Create and start multiple processes for each chunk
+    processes = []
+    for sdl_chunk, ll_chunk in zip(sdl_chunks, ll_chunks):
+        process = multiprocessing.Process(target=parallel_composite_floor, args=(sdl_chunk, ll_chunk))
+        processes.append(process)
+        process.start()
 
-df['Ultimate Shear at Beam to Girder Connection (kips)'] = df['Ultimate Shear at Beam to Girder Connection (kips)'].apply(replace_value)
+    # Wait for all processes to complete
+    for process in processes:
+        process.join()
 
-for index,row in df.iterrows():
-    xstream_input_df["type"]="BG"
-    xstream_input_df["support_size"]=df["Girder Section"]
-    xstream_input_df["support_material"]="A992"
-    xstream_input_df["beam_size"]=df[" Beam Section"]
-    xstream_input_df["beam_material"]="A992"
-    xstream_input_df["skew_angle"] = 0.0
-    xstream_input_df["delta_e"] = 0.0
-    xstream_input_df["vu_type"] = "ABS"
-    xstream_input_df["vu"] = df['Ultimate Shear at Beam to Girder Connection (kips)']
-    xstream_input_df["pu"] = 0.0
-    xstream_input_df["beam_length"] = df["Beam Span"]
-
-xstream_input_df.to_excel('xstream_input.xlsx', index=False)
-
-print("ALL ANALYS COMPLETE")
+if __name__ == "__main__":
+    # ... (rest of the code remains unchanged)
+    # Loop over the outermost lists and call the parallel function
+    parallelize_outer_loops(q_sdl_list, q_ll_list)
