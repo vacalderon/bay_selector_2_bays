@@ -85,8 +85,6 @@ q_sdl_list = generate_random_loads(15,60,10,5) #psf
 # LIVE LOAD
 q_ll_list = generate_random_loads(50,150,10,10) #psf
 
-# DEFINE LISTS
-
 girder_spans =[20.0, 25.0, 30.0, 35.0, 40.0,45.0,50.0] # [25.0, 30.0, 35.0] #  ft
 max_girder_depths = [36] # [48.0,42.0,36.0,30.0,24.0] #in
 beam_spans_1 = [20.0, 25.0, 30.0, 35.0, 40.0,45.0,50.0] # #  [20.0] #  ft
@@ -101,15 +99,15 @@ damping = 0.03 # Higher damping ratios are more appropiate if there are other no
 deflection_criticals = [False] # [True, False] #
 design_priorities = ['EmbodiedCarbon'] # ['EmbodiedCarbon', 'Cost', 'Tonnage'] # 
 concrete_types = ["WPM_5000_NWC","WPM_5000_LWC"] # ["WPM_3000_NWC","WPM_3500_NWC","WPM_4000_NWC","WPM_5000_NWC", "WPM_6000_NWC","WPM_8000_NWC","WPM_3000_LWC","WPM_3500_LWC","WPM_4000_LWC", "WPM_5000_LWC"] #  
-aisc_database_filename = r"C:\Users\victorc\Documents\GitHub\composite_floor_designer\AISC_Shapes_Database_v14.csv"
+aisc_database_filename = r"./AISC_Shapes_Database_v14.csv"
 
 l_eff=effective_length(beam_spans_1, beam_spans_2)
 beam_eff_span = remove_duplicates_and_values(l_eff, beam_spans_1)
 
 def parallel_composite_floor(q_sdl, q_ll):
 
-    for q_sdl in q_sdl_list:
-        for q_ll in q_ll_list:
+    for i in q_sdl:
+        for j in q_ll_list:
             for girder_span in girder_spans:
                 for max_girder_depth in max_girder_depths:    
                     for beam_span in beam_eff_span:
@@ -120,8 +118,7 @@ def parallel_composite_floor(q_sdl, q_ll):
                                         max_beam_depth=max_girder_depth
                                         if deck_type[8:10]!=concrete_type[9:11] :
                                             continue
-
-                                        [response,message] = composite_floor.composite_floor(girder_span, max_girder_depth, beam_span, max_beam_depth, max_beam_spacing, deck_type, q_sdl, q_ll, acc_limit, q_vib_sdl, q_vib_ll, damping, deflection_critical, design_priority, concrete_type, aisc_database_filename)
+                                        [response,message] = composite_floor.composite_floor(girder_span, max_girder_depth, beam_span, max_beam_depth, max_beam_spacing, deck_type, i, j, acc_limit, q_vib_sdl, q_vib_ll, damping, deflection_critical, design_priority, concrete_type, aisc_database_filename)
                                         if message =="Typical Wide-Flange Sections do not work for the given design parameters." :
                                             continue
 
@@ -143,22 +140,18 @@ def parallel_composite_floor(q_sdl, q_ll):
 # Parallelize the outermost loops
 def parallelize_outer_loops(q_sdl_list, q_ll_list):
     num_processes = multiprocessing.cpu_count()  # You can set the number of parallel processes here
-
     # Split the loading conditions into chunks for parallel processing
-    chunk_size = len(q_sdl_list) // num_processes
-    sdl_chunks = [q_sdl_list[i:i + chunk_size] for i in range(0, len(q_sdl_list), chunk_size)]
-    ll_chunks = [q_ll_list[i:i + chunk_size] for i in range(0, len(q_ll_list), chunk_size)]
-
+    chunk_size = 2
+    sdl_chunks = [q_sdl_list[i:i + 1] for i in range(0, len(q_sdl_list), 1)]
+    ll_chunks = [q_ll_list[i:i + 2] for i in range(0, len(q_ll_list), 2)]
     # Create a multiprocessing Queue to store the results from different processes
     result_queue = multiprocessing.Queue()
-
     # Create and start multiple processes for each chunk
     processes = []
     for sdl_chunk, ll_chunk in zip(sdl_chunks, ll_chunks):
         process = multiprocessing.Process(target=parallel_composite_floor, args=(sdl_chunk, ll_chunk))
         processes.append(process)
         process.start()
-
     # Wait for all processes to complete
     for process in processes:
         process.join()
