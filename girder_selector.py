@@ -122,8 +122,8 @@ def parallel_composite_floor(q_sdl, q_ll):
                                         if message =="Typical Wide-Flange Sections do not work for the given design parameters." :
                                             continue
 
-                                        results_dict={'Super Imposed Dead Load, SD (psf)': q_sdl,
-                                                    'Live Load, L (psf)': q_ll,
+                                        results_dict={'Super Imposed Dead Load, SD (psf)': i,
+                                                    'Live Load, L (psf)': j,
                                                     'Girder Span': girder_span,
                                                     'Max Girder Depth': max_girder_depth,
                                                     'Beam Span': beam_span,
